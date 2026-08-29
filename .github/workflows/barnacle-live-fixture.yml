@@ -59,6 +59,7 @@ jobs:
 
             const { owner, repo } = context.repo;
             const pullNumber = context.payload.pull_request.number;
+            const triggerAction = context.payload.action;
             const headRef = context.payload.pull_request.head.ref;
             const routingLabel = "r: skill";
             const fixtureCases = {
@@ -200,7 +201,7 @@ jobs:
                 repository: `${owner}/${repo}`,
                 pullRequest: after.data.html_url,
                 run: runUrl,
-                trigger: "pull_request_target/opened",
+                trigger: `pull_request_target/${triggerAction}`,
                 replayedRecordedEvent: {
                   id: recordedLabelEvent.id,
                   event: recordedLabelEvent.event,
