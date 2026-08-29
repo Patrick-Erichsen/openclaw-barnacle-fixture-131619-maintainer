@@ -1,0 +1,250 @@
+name: Barnacle live fixture
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+permissions: {}
+
+concurrency:
+  group: barnacle-live-fixture-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  live-fixture:
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact-head source
+        shell: bash
+        env:
+          EXPECTED_SHA256: a834ef6718fe511771165549122bf2fc8078074def1afa63cd3294d9c428d06b
+        run: |
+          set -euo pipefail
+          actual="$(sha256sum scripts/github/barnacle-auto-response.mjs | cut -d ' ' -f 1)"
+          test "$actual" = "$EXPECTED_SHA256"
+          echo "Exact-head Barnacle SHA-256: $actual"
+
+      - name: Apply bot label and exercise Barnacle through GitHub REST
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          SOURCE_HEAD: 3eb3ae4d879bdca46ee82bd7aae90023556fda3e
+          SOURCE_BLOB: 8b5c35a50f9fbb125e4b49b8b73ac0c48b14c31d
+          SOURCE_SHA256: a834ef6718fe511771165549122bf2fc8078074def1afa63cd3294d9c428d06b
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require("node:fs");
+            const { pathToFileURL } = require("node:url");
+
+            const { owner, repo } = context.repo;
+            const pullNumber = context.payload.pull_request.number;
+            const headRef = context.payload.pull_request.head.ref;
+            const routingLabel = "r: skill";
+            const fixtureCases = {
+              "codex/fixture-core-runtime": {
+                name: "core-runtime",
+                expectedState: "open",
+                expectedLabel: false,
+                expectedNewBarnacleComment: false,
+              },
+              "codex/fixture-standalone-skill": {
+                name: "standalone-skill",
+                expectedState: "closed",
+                expectedLabel: true,
+                expectedNewBarnacleComment: true,
+              },
+            };
+            const fixtureCase = fixtureCases[headRef];
+            if (!fixtureCase) {
+              core.setFailed(`Unexpected fixture branch: ${headRef}`);
+              return;
+            }
+
+            try {
+              await github.rest.issues.getLabel({ owner, repo, name: routingLabel });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              await github.rest.issues.createLabel({
+                owner,
+                repo,
+                name: routingLabel,
+                color: "6f42c1",
+                description: "Fixture copy of OpenClaw standalone-skill routing",
+              });
+            }
+
+            const commentsBefore = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: pullNumber,
+              per_page: 100,
+            });
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number: pullNumber,
+              labels: [routingLabel],
+            });
+
+            let recordedLabelEvent;
+            for (let attempt = 0; attempt < 5 && !recordedLabelEvent; attempt += 1) {
+              const events = await github.paginate(github.rest.issues.listEvents, {
+                owner,
+                repo,
+                issue_number: pullNumber,
+                per_page: 100,
+              });
+              recordedLabelEvent = [...events].reverse().find(
+                (event) =>
+                  event.event === "labeled" &&
+                  event.label?.name === routingLabel &&
+                  event.actor?.login === "github-actions[bot]",
+              );
+              if (!recordedLabelEvent) {
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+              }
+            }
+            if (!recordedLabelEvent) {
+              core.setFailed("The real github-actions[bot] label event was not recorded.");
+              return;
+            }
+
+            const before = await github.rest.pulls.get({ owner, repo, pull_number: pullNumber });
+            context.payload.action = "labeled";
+            context.payload.label = recordedLabelEvent.label;
+            context.payload.sender = recordedLabelEvent.actor;
+            context.payload.pull_request = before.data;
+
+            const moduleUrl = pathToFileURL(
+              `${process.env.GITHUB_WORKSPACE}/scripts/github/barnacle-auto-response.mjs`,
+            );
+            const { runBarnacleAutoResponse } = await import(moduleUrl.href);
+            await runBarnacleAutoResponse({ github, context, core });
+
+            const after = await github.rest.pulls.get({ owner, repo, pull_number: pullNumber });
+            const commentsAfter = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: pullNumber,
+              per_page: 100,
+            });
+            const eventsAfter = await github.paginate(github.rest.issues.listEvents, {
+              owner,
+              repo,
+              issue_number: pullNumber,
+              per_page: 100,
+            });
+
+            const beforeLabels = before.data.labels.map((label) => label.name).sort();
+            const afterLabels = after.data.labels.map((label) => label.name).sort();
+            const newComments = commentsAfter.slice(commentsBefore.length);
+            const removalEvent = [...eventsAfter].reverse().find(
+              (event) =>
+                event.event === "unlabeled" &&
+                event.label?.name === routingLabel &&
+                event.actor?.login === "github-actions[bot]",
+            );
+            const assertions = {
+              state: after.data.state === fixtureCase.expectedState,
+              routingLabel:
+                afterLabels.includes(routingLabel) === fixtureCase.expectedLabel,
+              barnacleComment:
+                (newComments.length > 0) === fixtureCase.expectedNewBarnacleComment,
+              removalEvent: fixtureCase.expectedLabel ? !removalEvent : Boolean(removalEvent),
+            };
+            const passed = Object.values(assertions).every(Boolean);
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            const evidence = {
+              schema: "openclaw-barnacle-live-fixture-v1",
+              case: fixtureCase.name,
+              source: {
+                pullRequest: "https://github.com/openclaw/openclaw/pull/131619",
+                head: process.env.SOURCE_HEAD,
+                scriptBlob: process.env.SOURCE_BLOB,
+                scriptSha256: process.env.SOURCE_SHA256,
+              },
+              fixture: {
+                repository: `${owner}/${repo}`,
+                pullRequest: after.data.html_url,
+                run: runUrl,
+                trigger: "pull_request_target/opened",
+                replayedRecordedEvent: {
+                  id: recordedLabelEvent.id,
+                  event: recordedLabelEvent.event,
+                  label: recordedLabelEvent.label?.name,
+                  actor: recordedLabelEvent.actor?.login,
+                  actorType: recordedLabelEvent.actor?.type,
+                  createdAt: recordedLabelEvent.created_at,
+                },
+              },
+              before: {
+                state: before.data.state,
+                labels: beforeLabels,
+                comments: commentsBefore.length,
+              },
+              after: {
+                state: after.data.state,
+                labels: afterLabels,
+                closedBy: after.data.closed_by?.login ?? null,
+                newComments: newComments.map((comment) => ({
+                  author: comment.user?.login,
+                  url: comment.html_url,
+                })),
+                routingLabelRemovalEventId: removalEvent?.id ?? null,
+              },
+              assertions,
+              passed,
+            };
+
+            fs.writeFileSync("fixture-evidence.json", `${JSON.stringify(evidence, null, 2)}\n`);
+            await core.summary
+              .addHeading(`Barnacle live fixture: ${fixtureCase.name}`)
+              .addCodeBlock(JSON.stringify(evidence, null, 2), "json")
+              .write();
+
+            const marker = `<!-- openclaw-barnacle-live-fixture:${fixtureCase.name} -->`;
+            const body = [
+              marker,
+              `## Barnacle live fixture: ${fixtureCase.name}`,
+              "",
+              `Result: **${passed ? "PASS" : "FAIL"}**`,
+              "",
+              `- Source head: \`${process.env.SOURCE_HEAD}\``,
+              `- Source script SHA-256: \`${process.env.SOURCE_SHA256}\``,
+              `- Recorded label event: \`${recordedLabelEvent.id}\`, actor \`${recordedLabelEvent.actor?.login}\``,
+              `- Before: state \`${before.data.state}\`, labels \`${beforeLabels.join(", ")}\``,
+              `- After: state \`${after.data.state}\`, labels \`${afterLabels.join(", ")}\``,
+              `- Workflow run: ${runUrl}`,
+              "",
+              "The exact production script used real GitHub REST mutations. The repo-scoped",
+              "GITHUB_TOKEN label event was read from the timeline and replayed in the same",
+              "pull_request_target run because GitHub suppresses recursive workflow triggers.",
+            ].join("\n");
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: pullNumber,
+              body,
+            });
+
+            if (!passed) {
+              core.setFailed(`Fixture assertions failed: ${JSON.stringify(assertions)}`);
+            }
+
+      - name: Upload machine-readable evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: barnacle-fixture-${{ github.event.pull_request.number }}
+          path: fixture-evidence.json
+          if-no-files-found: error
+          retention-days: 30
