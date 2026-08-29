@@ -27,11 +27,23 @@ jobs:
         shell: bash
         env:
           EXPECTED_SHA256: a834ef6718fe511771165549122bf2fc8078074def1afa63cd3294d9c428d06b
+          POLICY_SHA256: 37063a0366114a160797a7df0606fc7e425ddd3000fe90bbf687b277c9424803
+          BOUNDED_RESPONSE_SHA256: f7250e2e6d1d0d9416a846bb304e2346c46ee5f5e182a770be5144e826e8b41d
+          REGEXP_SHA256: 966a949fc75bb560219ffac105068fb74bdc9b039e586d6093315987f571f17f
         run: |
           set -euo pipefail
-          actual="$(sha256sum scripts/github/barnacle-auto-response.mjs | cut -d ' ' -f 1)"
-          test "$actual" = "$EXPECTED_SHA256"
-          echo "Exact-head Barnacle SHA-256: $actual"
+          check_hash() {
+            local path="$1"
+            local expected="$2"
+            local actual
+            actual="$(sha256sum "$path" | cut -d ' ' -f 1)"
+            test "$actual" = "$expected"
+            echo "$path SHA-256: $actual"
+          }
+          check_hash scripts/github/barnacle-auto-response.mjs "$EXPECTED_SHA256"
+          check_hash scripts/github/real-behavior-proof-policy.mjs "$POLICY_SHA256"
+          check_hash scripts/lib/bounded-response.mjs "$BOUNDED_RESPONSE_SHA256"
+          check_hash scripts/lib/regexp.mjs "$REGEXP_SHA256"
 
       - name: Apply bot label and exercise Barnacle through GitHub REST
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9

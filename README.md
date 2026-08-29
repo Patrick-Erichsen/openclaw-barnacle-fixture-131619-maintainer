@@ -7,7 +7,12 @@ GitHub pull requests and the real GitHub REST API.
 - Source head: `3eb3ae4d879bdca46ee82bd7aae90023556fda3e`
 - Source blob: `8b5c35a50f9fbb125e4b49b8b73ac0c48b14c31d`
 - Source SHA-256: `a834ef6718fe511771165549122bf2fc8078074def1afa63cd3294d9c428d06b`
-- Production script: copied byte-for-byte; no test seam or fixture branch was added.
+- Production script and its static import closure: copied byte-for-byte; no test
+  seam or fixture branch was added.
+- Import closure SHA-256:
+  - `scripts/github/real-behavior-proof-policy.mjs`: `37063a0366114a160797a7df0606fc7e425ddd3000fe90bbf687b277c9424803`
+  - `scripts/lib/bounded-response.mjs`: `f7250e2e6d1d0d9416a846bb304e2346c46ee5f5e182a770be5144e826e8b41d`
+  - `scripts/lib/regexp.mjs`: `966a949fc75bb560219ffac105068fb74bdc9b039e586d6093315987f571f17f`
 - Credentials: only the disposable repository's scoped `GITHUB_TOKEN`; no user,
   upstream, or GitHub App secrets.
 
