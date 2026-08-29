@@ -68,7 +68,19 @@ jobs:
                 expectedLabel: false,
                 expectedNewBarnacleComment: false,
               },
+              "codex/bot-fixture-core-runtime": {
+                name: "core-runtime",
+                expectedState: "open",
+                expectedLabel: false,
+                expectedNewBarnacleComment: false,
+              },
               "codex/fixture-standalone-skill": {
+                name: "standalone-skill",
+                expectedState: "closed",
+                expectedLabel: true,
+                expectedNewBarnacleComment: true,
+              },
+              "codex/bot-fixture-standalone-skill": {
                 name: "standalone-skill",
                 expectedState: "closed",
                 expectedLabel: true,
