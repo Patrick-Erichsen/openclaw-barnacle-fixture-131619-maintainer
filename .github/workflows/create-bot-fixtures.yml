@@ -1,0 +1,79 @@
+name: Create bot-authored fixture PRs
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  create-fixtures:
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Create isolated bot-authored PRs
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const { owner, repo } = context.repo;
+            const baseRef = await github.rest.git.getRef({ owner, repo, ref: "heads/main" });
+            const fixtures = [
+              {
+                branch: "codex/bot-fixture-mixed-skill-core",
+                title: "fixture: mixed skill and core change must remain open",
+                files: [
+                  {
+                    path: "skills/barnacle-fixture/SKILL.md",
+                    content: "---\nname: barnacle-fixture\ndescription: Disposable routing fixture.\n---\n",
+                  },
+                  {
+                    path: "src/skills/fixture-runtime.ts",
+                    content: 'export const fixtureRuntimeSkillRegistry = ["mixed-change-must-remain-open"];\n',
+                  },
+                ],
+              },
+              {
+                branch: "codex/bot-fixture-standalone-skill",
+                title: "fixture: standalone skill must close",
+                files: [
+                  {
+                    path: "skills/barnacle-fixture/SKILL.md",
+                    content: "---\nname: barnacle-fixture\ndescription: Disposable routing fixture.\n---\n",
+                  },
+                  {
+                    path: "skills/barnacle-fixture/references/usage.md",
+                    content: "# Fixture reference\n",
+                  },
+                ],
+              },
+            ];
+
+            for (const fixture of fixtures) {
+              await github.rest.git.createRef({
+                owner,
+                repo,
+                ref: `refs/heads/${fixture.branch}`,
+                sha: baseRef.data.object.sha,
+              });
+              for (const file of fixture.files) {
+                await github.rest.repos.createOrUpdateFileContents({
+                  owner,
+                  repo,
+                  path: file.path,
+                  message: `test: add ${file.path}`,
+                  content: Buffer.from(file.content).toString("base64"),
+                  branch: fixture.branch,
+                });
+              }
+              const pull = await github.rest.pulls.create({
+                owner,
+                repo,
+                head: fixture.branch,
+                base: "main",
+                title: fixture.title,
+                body: "Bot-authored live GitHub API fixture for OpenClaw PR #131619.",
+              });
+              core.info(`Created ${pull.data.html_url}`);
+            }
