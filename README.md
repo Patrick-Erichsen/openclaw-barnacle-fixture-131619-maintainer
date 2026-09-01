@@ -26,9 +26,9 @@ GitHub pull requests and the real GitHub REST API.
 
 GitHub intentionally prevents a label written with `GITHUB_TOKEN` from starting a
 second workflow run. The fixture therefore records the real bot-authored label
-event from the pull-request timeline and replays that event context inside the
-same real `pull_request_target` run before invoking the exact production script.
-All label, comment, and pull-request state mutations are real GitHub API calls.
+event and invokes the exact production script in the same trusted
+`pull_request_target` run. All label, comment, and pull-request state mutations
+are real GitHub API calls.
 
 The run summary and a marker-backed comment on each fixture pull request contain
 the source hashes, recorded event identity, before/after state, labels, comments,

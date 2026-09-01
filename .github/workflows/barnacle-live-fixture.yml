@@ -144,9 +144,6 @@ jobs:
             }
 
             const before = await github.rest.pulls.get({ owner, repo, pull_number: pullNumber });
-            context.payload.action = "labeled";
-            context.payload.label = recordedLabelEvent.label;
-            context.payload.sender = recordedLabelEvent.actor;
             context.payload.pull_request = before.data;
 
             const moduleUrl = pathToFileURL(
@@ -176,7 +173,8 @@ jobs:
               (event) =>
                 event.event === "unlabeled" &&
                 event.label?.name === routingLabel &&
-                event.actor?.login === "github-actions[bot]",
+                event.actor?.login === "github-actions[bot]" &&
+                Number(event.id) > Number(recordedLabelEvent.id),
             );
             const assertions = {
               state: after.data.state === fixtureCase.expectedState,
@@ -202,7 +200,7 @@ jobs:
                 pullRequest: after.data.html_url,
                 run: runUrl,
                 trigger: `pull_request_target/${triggerAction}`,
-                replayedRecordedEvent: {
+                recordedLabelEvent: {
                   id: recordedLabelEvent.id,
                   event: recordedLabelEvent.event,
                   label: recordedLabelEvent.label?.name,
@@ -251,7 +249,7 @@ jobs:
               `- Workflow run: ${runUrl}`,
               "",
               "The exact production script used real GitHub REST mutations. The repo-scoped",
-              "GITHUB_TOKEN label event was read from the timeline and replayed in the same",
+              "GITHUB_TOKEN label event was read from the timeline in the same",
               "pull_request_target run because GitHub suppresses recursive workflow triggers.",
             ].join("\n");
             await github.rest.issues.createComment({
