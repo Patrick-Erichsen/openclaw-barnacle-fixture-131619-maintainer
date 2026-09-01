@@ -26,7 +26,7 @@ jobs:
       - name: Verify exact-head source
         shell: bash
         env:
-          EXPECTED_SHA256: a834ef6718fe511771165549122bf2fc8078074def1afa63cd3294d9c428d06b
+          EXPECTED_SHA256: 6de49b8cb1adc61eb1e0ecdf6e2b7a4d21cf8fac9f16de85343f668430843150
           POLICY_SHA256: 37063a0366114a160797a7df0606fc7e425ddd3000fe90bbf687b277c9424803
           BOUNDED_RESPONSE_SHA256: f7250e2e6d1d0d9416a846bb304e2346c46ee5f5e182a770be5144e826e8b41d
           REGEXP_SHA256: 966a949fc75bb560219ffac105068fb74bdc9b039e586d6093315987f571f17f
@@ -48,9 +48,9 @@ jobs:
       - name: Apply bot label and exercise Barnacle through GitHub REST
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
-          SOURCE_HEAD: 3eb3ae4d879bdca46ee82bd7aae90023556fda3e
-          SOURCE_BLOB: 8b5c35a50f9fbb125e4b49b8b73ac0c48b14c31d
-          SOURCE_SHA256: a834ef6718fe511771165549122bf2fc8078074def1afa63cd3294d9c428d06b
+          SOURCE_HEAD: 6f2ba484538838ae8ea792c2d5d290a40d7c90c6
+          SOURCE_BLOB: df931a742b3c6caa44d64d086538ebcdb97036d4
+          SOURCE_SHA256: 6de49b8cb1adc61eb1e0ecdf6e2b7a4d21cf8fac9f16de85343f668430843150
         with:
           github-token: ${{ github.token }}
           script: |
@@ -63,25 +63,13 @@ jobs:
             const headRef = context.payload.pull_request.head.ref;
             const routingLabel = "r: skill";
             const fixtureCases = {
-              "codex/fixture-core-runtime": {
-                name: "core-runtime",
-                expectedState: "open",
-                expectedLabel: false,
-                expectedNewBarnacleComment: false,
-              },
-              "codex/bot-fixture-core-runtime": {
-                name: "core-runtime",
+              "codex/fixture-mixed-skill-core": {
+                name: "mixed-skill-core",
                 expectedState: "open",
                 expectedLabel: false,
                 expectedNewBarnacleComment: false,
               },
               "codex/fixture-standalone-skill": {
-                name: "standalone-skill",
-                expectedState: "closed",
-                expectedLabel: true,
-                expectedNewBarnacleComment: true,
-              },
-              "codex/bot-fixture-standalone-skill": {
                 name: "standalone-skill",
                 expectedState: "closed",
                 expectedLabel: true,

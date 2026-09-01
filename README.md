@@ -4,9 +4,9 @@ This disposable public repository exercises the Barnacle auto-response script fr
 OpenClaw PR [#131619](https://github.com/openclaw/openclaw/pull/131619) against real
 GitHub pull requests and the real GitHub REST API.
 
-- Source head: `3eb3ae4d879bdca46ee82bd7aae90023556fda3e`
-- Source blob: `8b5c35a50f9fbb125e4b49b8b73ac0c48b14c31d`
-- Source SHA-256: `a834ef6718fe511771165549122bf2fc8078074def1afa63cd3294d9c428d06b`
+- Source head: `6f2ba484538838ae8ea792c2d5d290a40d7c90c6`
+- Source blob: `df931a742b3c6caa44d64d086538ebcdb97036d4`
+- Source SHA-256: `6de49b8cb1adc61eb1e0ecdf6e2b7a4d21cf8fac9f16de85343f668430843150`
 - Production script and its static import closure: copied byte-for-byte; no test
   seam or fixture branch was added.
 - Import closure SHA-256:
@@ -18,8 +18,8 @@ GitHub pull requests and the real GitHub REST API.
 
 ## Cases
 
-1. A core runtime change receives an automatic `r: skill` label. Barnacle must
-   remove the label and leave the pull request open.
+1. A mixed standalone-skill and core-runtime change receives an automatic
+   `r: skill` label. Barnacle must remove the label and leave the pull request open.
 2. A newly added standalone `skills/<name>/SKILL.md` receives the same label.
    Barnacle must retain the label, post its normal response, and close the pull
    request.
